@@ -20,6 +20,12 @@
 #include <cstring>
 #include <limits>
 #include <type_traits>
+#include <stdio.h>
+#include <cmath>
+
+#include <cassert>
+#include <cstdint>
+#include <cstddef>
 
 // Suppress additional buffer overrun check.
 // I have no idea why MSVC thinks some functions here are vulnerable to the buffer overrun attacks.
@@ -3000,8 +3006,8 @@ namespace jkj::dragonbox {
                                                                      result.exponent, buffer);
             }
             else {
-                std::memcpy(buffer, "0E0", 3);
-                return buffer + 3;
+                std::memcpy(buffer, "0", 1);
+                return buffer + 1;
             }
         }
         else {
@@ -3049,6 +3055,87 @@ namespace jkj::dragonbox {
 #else
     #define JKJ_FORCEINLINE inline
 #endif
+
+        constexpr std::uint64_t pow10[] = {
+            1ull,
+            10ull,
+            100ull,
+            1000ull,
+            1'0000ull,
+            10'0000ull,
+            100'0000ull,
+            1000'0000ull,
+            1'0000'0000ull,
+            10'0000'0000ull,
+            100'0000'0000ull,
+            1000'0000'0000ull,
+            1'0000'0000'0000ull,
+            10'0000'0000'0000ull,
+            100'0000'0000'0000ull,
+            1000'0000'0000'0000ull,
+            1'0000'0000'0000'0000ull,
+            10'0000'0000'0000'0000ull,
+            100'0000'0000'0000'0000ull,
+            1000'0000'0000'0000'0000ull
+        };
+
+        constexpr int floor_log10_pow2(int e) noexcept {
+            return (e * 1262611) >> 22;
+        }
+
+        constexpr int ceil_log10_pow2(int e) noexcept {
+            return e == 0 ? 0 : floor_log10_pow2(e) + 1;
+        }
+
+        struct digit_count_table_holder_t {
+            std::uint64_t entry[64];
+        };
+
+        constexpr digit_count_table_holder_t generate_digit_count_table() {
+            digit_count_table_holder_t table{ {} };
+
+            for (int i = 0; i < 64; ++i) {
+                auto const ub = std::uint64_t(ceil_log10_pow2(i));
+                assert(ub <= 19);
+                table.entry[i] = ((ub + 1) << 52) - (pow10[ub] >> (i / 4));
+            }
+
+            return table;
+        }
+
+        constexpr inline auto digit_count_table = generate_digit_count_table();
+
+        static inline int floor_log2(std::uint64_t n) noexcept {
+            return 63 ^ __builtin_clzll(n);
+        }
+
+        static inline int count_digit(std::uint64_t n) noexcept {
+            return int((digit_count_table.entry[floor_log2(n)] + (n >> (floor_log2(n) / 4))) >> 52);
+        }
+
+        static inline void convert_64(char* const buffer, std::uint64_t value, int digits, int decimal_point_ind)
+        {
+            int pos = decimal_point_ind > 0 ? digits : digits - 1;
+
+            while (value >= 10)
+            {
+                if(decimal_point_ind > 0 && pos == decimal_point_ind) {
+                    buffer[pos--] = '.';
+                    continue;
+                }
+                const auto q = value / (std::uint64_t)10;
+                const auto r = static_cast<char>(value % (std::uint64_t)10);
+                buffer[pos--] = '0' + r;
+                value = q;
+            }
+
+            if(decimal_point_ind > 0 && pos == decimal_point_ind) {
+                buffer[pos--] = '.';
+            }
+
+            // Handle last digit and terminate the string.
+            buffer[pos] = static_cast<char>(value) + '0';
+        }
 
 namespace jkj::dragonbox {
     namespace to_chars_detail {
@@ -3224,14 +3311,54 @@ namespace jkj::dragonbox {
             return buffer;
         }
 
+        // assumes x > 0
+        static inline int ctzll_base10(std::uint64_t x) {
+            int count = 0;
+            while(x%10 == 0) {
+                count++;
+                x /= 10;
+            }
+
+            return count;
+        }
+
         // May have trailing zeros.
         template <>
-        char* to_chars<double, default_float_traits<double>>(std::uint64_t const significand,
+        char* to_chars<double, default_float_traits<double>>(std::uint64_t significand,
                                                              int exponent, char* buffer) noexcept {
             std::uint32_t s32;
             int remaining_digits_minus_1;
             int exponent_position;
             bool may_have_more_trailing_zeros = false;
+            //bool no_exponent = false;
+            //bool no_decimlal_point = false;
+            int decimal_point_index = 1;
+            //printf("exp=%d, signif=%lu\n", exponent, significand);
+
+            //std::uint64_t tow_pow_58 = 0x00ffffffffffffff; // 2^58 which is smaller than 10^17
+            if(exponent <= 0 && exponent >= -16) {
+                int n_digits = count_digit(significand);
+                if(n_digits + exponent > 0) {
+                    // in this case there is no need for the exponent cause the number can fit in 17 chars
+                    //no_exponent = true;
+                    int n_trailing_zeros = ctzll_base10(significand);
+                    if(n_trailing_zeros + exponent >= 0) {
+                        significand /= pow10[(-1)*exponent];
+                        n_digits += exponent;
+                        //no_decimlal_point = true;
+                        decimal_point_index = -1; // An arbitrarily large number
+                        //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
+                    } else {
+                        significand /= pow10[n_trailing_zeros];
+                        decimal_point_index = n_digits + exponent;
+                        n_digits -= n_trailing_zeros;
+                        //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
+                    }
+                    convert_64(buffer, significand, n_digits, decimal_point_index);
+                    //printf("offset=%d, buf=%s, c=%c\n", (decimal_point_index > 0 ? n_digits + 1 : n_digits), buffer, buffer[16]);
+                    return buffer + (decimal_point_index > 0 ? n_digits + 1 : n_digits);
+                }
+            }
 
             if ((significand >> 32) != 0) {
                 // Since significand is at most 10^17, the quotient is at most 10^9, so
@@ -3470,6 +3597,29 @@ namespace jkj::dragonbox {
 extern "C"
 {
 void dragonbox_double_to_chars(double x, char *buffer) {
+    /*
+    x = 1.01;
+    printf("exp=%lf\n", x);
+    jkj::dragonbox::to_chars(x, buffer);
+        printf("%s\n", buffer);
+    x = 0.3;
+    printf("exp=%lf\n", x);
+    jkj::dragonbox::to_chars(x, buffer);
+        printf("%s\n", buffer);
+    x = 124.0;
+    printf("exp=%lf\n", x);
+    jkj::dragonbox::to_chars(x, buffer);
+            printf("%s\n", buffer);
+        x = 1.0;
+    printf("exp=%lf\n", x);
+    jkj::dragonbox::to_chars(x, buffer);
+            printf("%s\n", buffer);
+
+    x = 0.0;
+    printf("exp=%lf\n", x);
+    jkj::dragonbox::to_chars(x, buffer);
+            printf("%s\n", buffer);
+            */
     jkj::dragonbox::to_chars(x, buffer);
 }
 }
