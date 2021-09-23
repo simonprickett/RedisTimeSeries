@@ -3312,14 +3312,71 @@ namespace jkj::dragonbox {
         }
 
         // assumes x > 0
-        static inline int ctzll_base10(std::uint64_t x) {
-            int count = 0;
-            while(x%10 == 0) {
-                count++;
-                x /= 10;
+        JKJ_FORCEINLINE static int ctzll_base10(std::uint64_t x, int n_digits_minus_1) {
+            while(n_digits_minus_1 > 0) {
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
             }
+            return 0;
+        }
 
-            return count;
+        JKJ_FORCEINLINE static constexpr std::uint32_t
+        decimal_length_u64(std::uint64_t const v) {
+            assert(v < 10'0000'0000'0000'0000);
+            if (v >= 1'0000'0000'0000'0000) {
+                return 17;
+            }
+            if (v >= 1000'0000'0000'0000) {
+                return 16;
+            }
+            if (v >= 100'0000'0000'0000) {
+                return 15;
+            }
+            if (v >= 10'0000'0000'0000) {
+                return 14;
+            }
+            if (v >= 1'0000'0000'0000) {
+                return 13;
+            }
+            if (v >= 1000'0000'0000) {
+                return 12;
+            }
+            if (v >= 100'0000'0000) {
+                return 11;
+            }
+            if (v >= 10'0000'0000) {
+                return 10;
+            }
+            if (v >= 1'0000'0000) {
+                return 9;
+            }
+            if (v >= 1000'0000) {
+                return 8;
+            }
+            if (v >= 100'0000) {
+                return 7;
+            }
+            if (v >= 10'0000) {
+                return 6;
+            }
+            if (v >= 1'0000) {
+                return 5;
+            }
+            if (v >= 1000) {
+                return 4;
+            }
+            if (v >= 100) {
+                return 3;
+            }
+            if (v >= 10) {
+                return 2;
+            }
+            if (v >= 1) {
+                return 1;
+            }
+            return 0;
         }
 
         // May have trailing zeros.
@@ -3334,14 +3391,14 @@ namespace jkj::dragonbox {
             //bool no_decimlal_point = false;
             int decimal_point_index = 1;
             //printf("exp=%d, signif=%lu\n", exponent, significand);
-
             //std::uint64_t tow_pow_58 = 0x00ffffffffffffff; // 2^58 which is smaller than 10^17
             if(exponent <= 0 && exponent >= -16) {
-                int n_digits = count_digit(significand);
+                //int n_digits = count_digit(significand);
+                int n_digits = decimal_length_u64(significand);
                 if(n_digits + exponent > 0) {
                     // in this case there is no need for the exponent cause the number can fit in 17 chars
                     //no_exponent = true;
-                    int n_trailing_zeros = ctzll_base10(significand);
+                    int n_trailing_zeros = ctzll_base10(significand, n_digits - 1);
                     if(n_trailing_zeros + exponent >= 0) {
                         significand /= drag__pow10[(-1)*exponent];
                         n_digits += exponent;
