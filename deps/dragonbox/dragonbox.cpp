@@ -3056,7 +3056,7 @@ namespace jkj::dragonbox {
     #define JKJ_FORCEINLINE inline
 #endif
 
-        constexpr std::uint64_t pow10[] = {
+        constexpr std::uint64_t drag__pow10[] = {
             1ull,
             10ull,
             100ull,
@@ -3097,7 +3097,7 @@ namespace jkj::dragonbox {
             for (int i = 0; i < 64; ++i) {
                 auto const ub = std::uint64_t(ceil_log10_pow2(i));
                 assert(ub <= 19);
-                table.entry[i] = ((ub + 1) << 52) - (pow10[ub] >> (i / 4));
+                table.entry[i] = ((ub + 1) << 52) - (drag__pow10[ub] >> (i / 4));
             }
 
             return table;
@@ -3343,13 +3343,13 @@ namespace jkj::dragonbox {
                     //no_exponent = true;
                     int n_trailing_zeros = ctzll_base10(significand);
                     if(n_trailing_zeros + exponent >= 0) {
-                        significand /= pow10[(-1)*exponent];
+                        significand /= drag__pow10[(-1)*exponent];
                         n_digits += exponent;
                         //no_decimlal_point = true;
                         decimal_point_index = -1; // An arbitrarily large number
                         //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
                     } else {
-                        significand /= pow10[n_trailing_zeros];
+                        significand /= drag__pow10[n_trailing_zeros];
                         decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
                         //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
