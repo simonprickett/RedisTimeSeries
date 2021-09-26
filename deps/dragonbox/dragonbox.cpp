@@ -3113,6 +3113,16 @@ namespace jkj::dragonbox {
             return int((digit_count_table.entry[floor_log2(n)] + (n >> (floor_log2(n) / 4))) >> 52);
         }
 
+        JKJ_FORCEINLINE static void convert_64_simple(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
+        {
+            while (buf_ind_end >= buf_ind_start)
+            {
+                //const auto r = static_cast<char>(value % (std::uint64_t)10);
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
+            }
+        }
+
         JKJ_FORCEINLINE static void convert_64(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
         {
             while (buf_ind_end >= buf_ind_start + 3)
@@ -3321,6 +3331,16 @@ namespace jkj::dragonbox {
         }
 
         // assumes x > 0
+        JKJ_FORCEINLINE static int ctzll_base10_simple(std::uint64_t x, int n_digits_minus_1) {
+            while(n_digits_minus_1 > 0) {
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
+            }
+            return 0;
+        }
+
         JKJ_FORCEINLINE static int ctzll_base10(std::uint64_t x, int n_digits_minus_1) {
             while(n_digits_minus_1 > 5) {
                 if(x%drag__pow10[n_digits_minus_1] == 0) {
@@ -3429,13 +3449,13 @@ namespace jkj::dragonbox {
                 if(n_digits + exponent > 0) {
                     // in this case there is no need for the exponent cause the number can fit in 17 chars
                     //no_exponent = true;
-                    int n_trailing_zeros = ctzll_base10(significand, n_digits - 1);
+                    int n_trailing_zeros = ctzll_base10_simple(significand, n_digits - 1);
                     if(n_trailing_zeros + exponent >= 0) {
                         significand /= drag__pow10[(-1)*exponent];
                         n_digits += exponent;
                         //no_decimlal_point = true;
                         //printf("exp=%d, signif=%lu, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, n_trailing_zeros, n_digits);
-                        convert_64(buffer, 0, n_digits - 1, significand);
+                        convert_64_simple(buffer, 0, n_digits - 1, significand);
                         //*(buffer + n_digits) = '\0';
                         //printf("buf=%s\n", buffer);
                         //decimal_point_index = -1; // An arbitrarily large number
@@ -3445,9 +3465,9 @@ namespace jkj::dragonbox {
                         decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
                         //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
-                        convert_64(buffer, decimal_point_index + 1, n_digits, significand);
+                        convert_64_simple(buffer, decimal_point_index + 1, n_digits, significand);
                         buffer[decimal_point_index] = '.';
-                        convert_64(buffer, 0, decimal_point_index - 1, significand);
+                        convert_64_simple(buffer, 0, decimal_point_index - 1, significand);
                         //*(buffer + n_digits + 1) = '\0';
                         //printf("buf=%s\n", buffer);
                         return buffer + n_digits + 1; // +1 for the decimal point
