@@ -3113,28 +3113,37 @@ namespace jkj::dragonbox {
             return int((digit_count_table.entry[floor_log2(n)] + (n >> (floor_log2(n) / 4))) >> 52);
         }
 
-        static inline void convert_64(char* const buffer, std::uint64_t value, int digits, int decimal_point_ind)
+        JKJ_FORCEINLINE static void convert_64(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
         {
-            int pos = decimal_point_ind > 0 ? digits : digits - 1;
-
-            while (value >= 10)
+            while (buf_ind_end >= buf_ind_start + 3)
             {
-                if(decimal_point_ind > 0 && pos == decimal_point_ind) {
-                    buffer[pos--] = '.';
-                    continue;
-                }
-                const auto q = value / (std::uint64_t)10;
-                const auto r = static_cast<char>(value % (std::uint64_t)10);
-                buffer[pos--] = '0' + r;
-                value = q;
+                //const auto r = static_cast<char>(value % (std::uint64_t)10);
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
             }
-
-            if(decimal_point_ind > 0 && pos == decimal_point_ind) {
-                buffer[pos--] = '.';
+            while (buf_ind_end >= buf_ind_start + 1)
+            {
+                //const auto r = static_cast<char>(value % (std::uint64_t)10);
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
+            }
+            if(buf_ind_end == buf_ind_start)
+            {
+                //const auto r = static_cast<char>(value % (std::uint64_t)10);
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
+                value = value / (std::uint64_t)10;
             }
 
             // Handle last digit and terminate the string.
-            buffer[pos] = static_cast<char>(value) + '0';
+            //buffer[pos] = static_cast<char>(value) + '0';
         }
 
 namespace jkj::dragonbox {
@@ -3313,6 +3322,28 @@ namespace jkj::dragonbox {
 
         // assumes x > 0
         JKJ_FORCEINLINE static int ctzll_base10(std::uint64_t x, int n_digits_minus_1) {
+            while(n_digits_minus_1 > 5) {
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
+                if(x%drag__pow10[n_digits_minus_1] == 0) {
+                    return n_digits_minus_1;
+                }
+                n_digits_minus_1 -= 1;
+            }
             while(n_digits_minus_1 > 0) {
                 if(x%drag__pow10[n_digits_minus_1] == 0) {
                     return n_digits_minus_1;
@@ -3403,17 +3434,25 @@ namespace jkj::dragonbox {
                         significand /= drag__pow10[(-1)*exponent];
                         n_digits += exponent;
                         //no_decimlal_point = true;
-                        decimal_point_index = -1; // An arbitrarily large number
-                        //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
+                        //printf("exp=%d, signif=%lu, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, n_trailing_zeros, n_digits);
+                        convert_64(buffer, 0, n_digits - 1, significand);
+                        //*(buffer + n_digits) = '\0';
+                        //printf("buf=%s\n", buffer);
+                        //decimal_point_index = -1; // An arbitrarily large number
+                        return buffer + n_digits;
                     } else {
                         significand /= drag__pow10[n_trailing_zeros];
                         decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
                         //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
+                        convert_64(buffer, decimal_point_index + 1, n_digits, significand);
+                        buffer[decimal_point_index] = '.';
+                        convert_64(buffer, 0, decimal_point_index - 1, significand);
+                        //*(buffer + n_digits + 1) = '\0';
+                        //printf("buf=%s\n", buffer);
+                        return buffer + n_digits + 1; // +1 for the decimal point
                     }
-                    convert_64(buffer, significand, n_digits, decimal_point_index);
                     //printf("offset=%d, buf=%s, c=%c\n", (decimal_point_index > 0 ? n_digits + 1 : n_digits), buffer, buffer[16]);
-                    return buffer + (decimal_point_index > 0 ? n_digits + 1 : n_digits);
                 }
             }
 
@@ -3654,6 +3693,7 @@ namespace jkj::dragonbox {
 extern "C"
 {
 void dragonbox_double_to_chars(double x, char *buffer) {
+    //printf("val=%lf\n", x);
     /*
     x = 1.01;
     printf("exp=%lf\n", x);
