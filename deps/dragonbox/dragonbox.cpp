@@ -3114,17 +3114,19 @@ namespace jkj::dragonbox {
             return int((digit_count_table.entry[floor_log2(n)] + (n >> (floor_log2(n) / 4))) >> 52);
         }
 */
-        void convert_64_simple(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
+        JKJ_FORCEINLINE static void convert_64_simple(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
         {
             while (buf_ind_end >= buf_ind_start)
             {
                 //const auto r = static_cast<char>(value % (std::uint64_t)10);
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
+                //remainder = n - divisor * quotient;
+                auto quotient = value / (std::uint64_t)10ull;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value - 10ull*quotient);
+                value = quotient;
             }
         }
 
-        void convert_64(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
+        JKJ_FORCEINLINE static void convert_64(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
         {
             while (buf_ind_end >= buf_ind_start + 3)
             {
@@ -3398,7 +3400,7 @@ namespace jkj::dragonbox {
         };
 
         // Inspired by Hackers Delight
-        int ctzll_base10_fastest(std::uint64_t x, int n_digits_minus_1) {
+        JKJ_FORCEINLINE static int ctzll_base10_fastest(std::uint64_t x, int n_digits_minus_1) {
             std::uint64_t q;
             while(n_digits_minus_1 > 0) {
                 q = x*MULINV_POW5[n_digits_minus_1][0]; // x*(multiplicative inverse of 5^n_digits_minus_1) (mod 2^64)
@@ -3413,7 +3415,7 @@ namespace jkj::dragonbox {
         }
 
         // assumes x > 0
-        int ctzll_base10_simple(std::uint64_t x, int n_digits_minus_1) {
+        JKJ_FORCEINLINE static int ctzll_base10_simple(std::uint64_t x, int n_digits_minus_1) {
             while(n_digits_minus_1 > 0) {
                 if(x%drag__pow10[n_digits_minus_1] == 0) {
                     return n_digits_minus_1;
@@ -3423,7 +3425,7 @@ namespace jkj::dragonbox {
             return 0;
         }
 
-        int ctzll_base10(std::uint64_t x, int n_digits_minus_1) {
+        JKJ_FORCEINLINE static int ctzll_base10(std::uint64_t x, int n_digits_minus_1) {
             while(n_digits_minus_1 > 5) {
                 if(x%drag__pow10[n_digits_minus_1] == 0) {
                     return n_digits_minus_1;
@@ -3455,7 +3457,7 @@ namespace jkj::dragonbox {
             return 0;
         }
 
-        std::uint32_t
+        JKJ_FORCEINLINE static constexpr std::uint32_t
         decimal_length_u64(std::uint64_t const v) {
             assert(v < 10'0000'0000'0000'0000);
             if (v >= 1'0000'0000'0000'0000) {
