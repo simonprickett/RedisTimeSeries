@@ -3114,12 +3114,11 @@ namespace jkj::dragonbox {
             return int((digit_count_table.entry[floor_log2(n)] + (n >> (floor_log2(n) / 4))) >> 52);
         }
 */
+
         JKJ_FORCEINLINE static void convert_64_simple(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
         {
             while (buf_ind_end >= buf_ind_start)
             {
-                //const auto r = static_cast<char>(value % (std::uint64_t)10);
-                //remainder = n - divisor * quotient;
                 auto quotient = value / (std::uint64_t)10ull;
                 buffer[buf_ind_end--] = '0' + static_cast<char>(value - 10ull*quotient);
                 value = quotient;
@@ -3228,6 +3227,25 @@ namespace jkj::dragonbox {
                 return 1;
             }
             return 0;
+        }
+        JKJ_FORCEINLINE static void convert_64_fastest(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
+        {
+            while (buf_ind_end >= buf_ind_start + 1)
+            {
+                std::uint64_t quotient = value / (std::uint64_t)100;
+                std::uint64_t reminder = (value - 100ull*quotient);
+                std::memcpy(&(buffer[buf_ind_end - 1]), &radix_100_table[reminder * 2], 2);
+                buf_ind_end -= 2;
+                value = quotient;
+            }
+            if (buf_ind_end == buf_ind_start)
+            {
+                auto quotient = value / (std::uint64_t)10ull;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value - 10ull*quotient);
+                value = quotient;
+            }
+
+            return;
         }
 
         // Granlund-Montgomery style fast division
@@ -3539,7 +3557,7 @@ namespace jkj::dragonbox {
                         n_digits += exponent;
                         //no_decimlal_point = true;
                         //printf("exp=%d, signif=%lu, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, n_trailing_zeros, n_digits);
-                        convert_64_simple(buffer, 0, n_digits - 1, significand);
+                        convert_64_fastest(buffer, 0, n_digits - 1, significand);
                         //*(buffer + n_digits) = '\0';
                         //printf("buf=%s\n", buffer);
                         //decimal_point_index = -1; // An arbitrarily large number
@@ -3549,9 +3567,9 @@ namespace jkj::dragonbox {
                         decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
                         //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
-                        convert_64_simple(buffer, decimal_point_index + 1, n_digits, significand);
+                        convert_64_fastest(buffer, decimal_point_index + 1, n_digits, significand);
                         buffer[decimal_point_index] = '.';
-                        convert_64_simple(buffer, 0, decimal_point_index - 1, significand);
+                        convert_64_fastest(buffer, 0, decimal_point_index - 1, significand);
                         //*(buffer + n_digits + 1) = '\0';
                         //printf("buf=%s\n", buffer);
                         return buffer + n_digits + 1; // +1 for the decimal point
