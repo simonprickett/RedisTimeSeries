@@ -3375,7 +3375,7 @@ namespace jkj::dragonbox {
         };
 
         constexpr std::uint64_t MULINV_POW5[20][2] = {
-            { 0ull,                          // unused value
+            { 1ull,                          // not used in ctzll_base10_fastest just for the case when dividing in 10^0
               0                         },   // unused value
             { 14757395258967641293ull,                 // modular multiplicative inverse of 5
             (0xFFFF'FFFF'FFFF'FFFF)/5ull},   // condition: floor((2^64 - 1)/5)
@@ -3553,7 +3553,9 @@ namespace jkj::dragonbox {
                     //no_exponent = true;
                     int n_trailing_zeros = ctzll_base10_fastest(significand, n_digits - 1);
                     if(n_trailing_zeros + exponent >= 0) {
-                        significand /= drag__pow10[(-1)*exponent];
+                        // computing significand /= drag__pow10[(-1)*exponent] using the modular multiplicate inverse
+                        significand = significand*MULINV_POW5[(-1)*exponent][0];  // significand /= 5^((-1)*exponent)
+                        significand >>= (std::uint64_t)((-1)*exponent);           // significand /= 2^((-1)*exponent)
                         n_digits += exponent;
                         //no_decimlal_point = true;
                         //printf("exp=%d, signif=%lu, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, n_trailing_zeros, n_digits);
@@ -3563,7 +3565,9 @@ namespace jkj::dragonbox {
                         //decimal_point_index = -1; // An arbitrarily large number
                         return buffer + n_digits;
                     } else {
-                        significand /= drag__pow10[n_trailing_zeros];
+                        // computing significand /= drag__pow10[n_trailing_zeros] using the modular multiplicate inverse
+                        significand = significand*MULINV_POW5[n_trailing_zeros][0];   // significand /= 5^n_trailing_zeros
+                        significand >>= ((std::uint64_t)n_trailing_zeros);            // significand /= 2^n_trailing_zeros
                         decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
                         //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
