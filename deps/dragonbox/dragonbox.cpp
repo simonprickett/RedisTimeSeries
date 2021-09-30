@@ -3393,11 +3393,6 @@ namespace jkj::dragonbox {
         template <>
         char* to_chars<double, default_float_traits<double>>(std::uint64_t significand,
                                                              int exponent, char* buffer) noexcept {
-            std::uint32_t s32;
-            int remaining_digits_minus_1;
-            int exponent_position;
-            bool may_have_more_trailing_zeros = false;
-            int decimal_point_index = 1;
             if(exponent <= 0 && exponent >= -16) {
                 int n_digits = decimal_length_u64(significand);
                 if(n_digits + exponent > 0) {
@@ -3415,8 +3410,8 @@ namespace jkj::dragonbox {
                     } else {
                         // computing significand /= drag__pow10[n_trailing_zeros] using the modular multiplicate inverse
                         // significand /= (5^n_trailing_zeros*2^n_trailing_zeros)
+                        int decimal_point_index = n_digits + exponent;
                         significand = q >> ((std::uint64_t)n_trailing_zeros);
-                        decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
                         convert_u64_to_string(buffer, decimal_point_index + 1, n_digits, significand);
                         buffer[decimal_point_index] = '.';
@@ -3425,6 +3420,11 @@ namespace jkj::dragonbox {
                     }
                 }
             }
+
+            std::uint32_t s32;
+            int remaining_digits_minus_1;
+            int exponent_position;
+            bool may_have_more_trailing_zeros = false;
 
             if ((significand >> 32) != 0) {
                 // Since significand is at most 10^17, the quotient is at most 10^9, so
