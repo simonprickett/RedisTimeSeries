@@ -3056,72 +3056,6 @@ namespace jkj::dragonbox {
     #define JKJ_FORCEINLINE inline
 #endif
 
-        constexpr std::uint64_t drag__pow10[] = {
-            1ull,
-            10ull,
-            100ull,
-            1000ull,
-            1'0000ull,
-            10'0000ull,
-            100'0000ull,
-            1000'0000ull,
-            1'0000'0000ull,
-            10'0000'0000ull,
-            100'0000'0000ull,
-            1000'0000'0000ull,
-            1'0000'0000'0000ull,
-            10'0000'0000'0000ull,
-            100'0000'0000'0000ull,
-            1000'0000'0000'0000ull,
-            1'0000'0000'0000'0000ull,
-            10'0000'0000'0000'0000ull,
-            100'0000'0000'0000'0000ull,
-            1000'0000'0000'0000'0000ull
-        };
-
-        JKJ_FORCEINLINE static void convert_64_simple(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
-        {
-            while (buf_ind_end >= buf_ind_start)
-            {
-                auto quotient = value / (std::uint64_t)10ull;
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value - 10ull*quotient);
-                value = quotient;
-            }
-        }
-
-        JKJ_FORCEINLINE static void convert_64(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
-        {
-            while (buf_ind_end >= buf_ind_start + 3)
-            {
-                //const auto r = static_cast<char>(value % (std::uint64_t)10);
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-            }
-            while (buf_ind_end >= buf_ind_start + 1)
-            {
-                //const auto r = static_cast<char>(value % (std::uint64_t)10);
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-            }
-            if(buf_ind_end == buf_ind_start)
-            {
-                //const auto r = static_cast<char>(value % (std::uint64_t)10);
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value % (std::uint64_t)10);
-                value = value / (std::uint64_t)10;
-            }
-
-            // Handle last digit and terminate the string.
-            //buffer[pos] = static_cast<char>(value) + '0';
-        }
-
 namespace jkj::dragonbox {
     namespace to_chars_detail {
         // clang-format off
@@ -3191,25 +3125,6 @@ namespace jkj::dragonbox {
                 return 1;
             }
             return 0;
-        }
-        JKJ_FORCEINLINE static void convert_64_fastest(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
-        {
-            while (buf_ind_end >= buf_ind_start + 1)
-            {
-                std::uint64_t quotient = value / (std::uint64_t)100;
-                std::uint64_t reminder = (value - 100ull*quotient);
-                std::memcpy(&(buffer[buf_ind_end - 1]), &radix_100_table[reminder * 2], 2);
-                buf_ind_end -= 2;
-                value = quotient;
-            }
-            if (buf_ind_end == buf_ind_start)
-            {
-                auto quotient = value / (std::uint64_t)10ull;
-                buffer[buf_ind_end--] = '0' + static_cast<char>(value - 10ull*quotient);
-                value = quotient;
-            }
-
-            return;
         }
 
         // Granlund-Montgomery style fast division
@@ -3315,6 +3230,27 @@ namespace jkj::dragonbox {
             return buffer;
         }
 
+
+        JKJ_FORCEINLINE static void convert_u64_to_string(char* const buffer, int buf_ind_start, int buf_ind_end, std::uint64_t &value)
+        {
+            while (buf_ind_end >= buf_ind_start + 1)
+            {
+                std::uint64_t quotient = value / (std::uint64_t)100;
+                std::uint64_t reminder = (value - 100ull*quotient);
+                std::memcpy(&(buffer[buf_ind_end - 1]), &radix_100_table[reminder * 2], 2);
+                buf_ind_end -= 2;
+                value = quotient;
+            }
+            if (buf_ind_end == buf_ind_start)
+            {
+                auto quotient = value / (std::uint64_t)10ull;
+                buffer[buf_ind_end--] = '0' + static_cast<char>(value - 10ull*quotient);
+                value = quotient;
+            }
+
+            return;
+        }
+
         constexpr std::uint64_t __masks[] = {
             0x0ull,
             0x1ull,
@@ -3382,7 +3318,7 @@ namespace jkj::dragonbox {
         };
 
         // Inspired by Hackers Delight
-        JKJ_FORCEINLINE static int ctzll_base10_fastest(std::uint64_t x, int n_digits_minus_1, std::uint64_t &q) {
+        JKJ_FORCEINLINE static int ctzll_base10(std::uint64_t x, int n_digits_minus_1, std::uint64_t &q) {
             while(n_digits_minus_1 > 0) {
                 q = x*MULINV_POW5[n_digits_minus_1][0]; // x*(multiplicative inverse of 5^n_digits_minus_1) (mod 2^64)
                 //printf("q=%lu, x=%lu, MULINV_POW5=%lu, n_digits_minus_1=%d\n", q, x, MULINV_POW5[n_digits_minus_1][0], n_digits_minus_1);
@@ -3393,49 +3329,6 @@ namespace jkj::dragonbox {
                 n_digits_minus_1 -= 1;
             }
             q = x;
-            return 0;
-        }
-
-        // assumes x > 0
-        JKJ_FORCEINLINE static int ctzll_base10_simple(std::uint64_t x, int n_digits_minus_1) {
-            while(n_digits_minus_1 > 0) {
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-            }
-            return 0;
-        }
-
-        JKJ_FORCEINLINE static int ctzll_base10(std::uint64_t x, int n_digits_minus_1) {
-            while(n_digits_minus_1 > 5) {
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-            }
-            while(n_digits_minus_1 > 0) {
-                if(x%drag__pow10[n_digits_minus_1] == 0) {
-                    return n_digits_minus_1;
-                }
-                n_digits_minus_1 -= 1;
-            }
             return 0;
         }
 
@@ -3505,20 +3398,19 @@ namespace jkj::dragonbox {
             int exponent_position;
             bool may_have_more_trailing_zeros = false;
             int decimal_point_index = 1;
-            //printf("exp=%d, signif=%lu\n", exponent, significand);
             if(exponent <= 0 && exponent >= -16) {
                 int n_digits = decimal_length_u64(significand);
                 if(n_digits + exponent > 0) {
                     // in this case there is no need for the exponent cause the number can fit in 17 chars
                     std::uint64_t q;
-                    int n_trailing_zeros = ctzll_base10_fastest(significand, n_digits - 1, q);
+                    int n_trailing_zeros = ctzll_base10(significand, n_digits - 1, q);
                     if(n_trailing_zeros + exponent >= 0) { // no decimal point
                         // computing significand /= drag__pow10[(-1)*exponent] using the modular multiplicate inverse
                         // significand /= (5^((-1)*exponent)*2^((-1)*exponent))
                         significand = (significand*MULINV_POW5[(-1)*exponent][0]) >> (std::uint64_t)((-1)*exponent);
                         n_digits += exponent;
                         //printf("exp=%d, signif=%lu, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, n_trailing_zeros, n_digits);
-                        convert_64_fastest(buffer, 0, n_digits - 1, significand);
+                        convert_u64_to_string(buffer, 0, n_digits - 1, significand);
                         return buffer + n_digits;
                     } else {
                         // computing significand /= drag__pow10[n_trailing_zeros] using the modular multiplicate inverse
@@ -3526,10 +3418,9 @@ namespace jkj::dragonbox {
                         significand = q >> ((std::uint64_t)n_trailing_zeros);
                         decimal_point_index = n_digits + exponent;
                         n_digits -= n_trailing_zeros;
-                        //printf("exp=%d, signif=%lu, decimal_ind=%d, n_trailing_zeros=%d, ndigit=%d\n", exponent, significand, decimal_point_index, n_trailing_zeros, n_digits);
-                        convert_64_fastest(buffer, decimal_point_index + 1, n_digits, significand);
+                        convert_u64_to_string(buffer, decimal_point_index + 1, n_digits, significand);
                         buffer[decimal_point_index] = '.';
-                        convert_64_fastest(buffer, 0, decimal_point_index - 1, significand);
+                        convert_u64_to_string(buffer, 0, decimal_point_index - 1, significand);
                         return buffer + n_digits + 1; // +1 for the decimal point
                     }
                 }
@@ -3772,158 +3663,6 @@ namespace jkj::dragonbox {
 extern "C"
 {
 void dragonbox_double_to_chars(double x, char *buffer) {
-    //printf("val=%lf\n", x);
-    /*
-    x = 1.01;
-    printf("exp=%lf\n", x);
-    jkj::dragonbox::to_chars(x, buffer);
-        printf("%s\n", buffer);
-    x = 0.3;
-    printf("exp=%lf\n", x);
-    jkj::dragonbox::to_chars(x, buffer);
-        printf("%s\n", buffer);
-    x = 124.0;
-    printf("exp=%lf\n", x);
-    jkj::dragonbox::to_chars(x, buffer);
-            printf("%s\n", buffer);
-        x = 1.0;
-    printf("exp=%lf\n", x);
-    jkj::dragonbox::to_chars(x, buffer);
-            printf("%s\n", buffer);
-
-    x = 0.0;
-    printf("exp=%lf\n", x);
-    jkj::dragonbox::to_chars(x, buffer);
-            printf("%s\n", buffer);
-            */
     jkj::dragonbox::to_chars(x, buffer);
 }
 }
-
-/*
-#include <stdio.h>
-#include <sys/time.h>
- 
-double time_diff(struct timeval x , struct timeval y)
-{
-	double x_ms , y_ms , diff;
-	
-	x_ms = (double)x.tv_sec*1000000 + (double)x.tv_usec;
-	y_ms = (double)y.tv_sec*1000000 + (double)y.tv_usec;
-	
-	diff = (double)y_ms - (double)x_ms;
-	
-	return diff;
-}
-
-
-static inline constexpr __uint128_t computeM_u64(uint64_t d) {
-  // what follows is just ((__uint128_t)0 - 1) / d) + 1 spelled out
-  __uint128_t M = UINT64_C(0xFFFFFFFFFFFFFFFF);
-  M <<= 64;
-  M |= UINT64_C(0xFFFFFFFFFFFFFFFF);
-  M /= d;
-  M += 1;
-  return M;
-}
-
-// This is for the 64-bit functions.
-static inline uint64_t mul128_u64(__uint128_t lowbits, uint64_t d) {
-  __uint128_t bottom_half = (lowbits & UINT64_C(0xFFFFFFFFFFFFFFFF)) * d; // Won't overflow
-  bottom_half >>= 64;  // Only need the top 64 bits, as we'll shift the lower half away;
-  __uint128_t top_half = (lowbits >> 64) * d;
-  __uint128_t both_halves = bottom_half + top_half; // Both halves are already shifted down by 64
-  both_halves >>= 64; // Get top half of both_halves
-  return (uint64_t)both_halves;
-}
-
-static inline uint64_t fastmod_u64(uint64_t a, __uint128_t M, uint64_t d) {
-  __uint128_t lowbits = M * a;
-  return mul128_u64(lowbits, d);
-}
-
-static inline uint64_t fastdiv_u64(uint64_t a, __uint128_t M) {
-  return mul128_u64(M, a);
-}
-
-void divmod10(uint32_t in, uint32_t &div, uint32_t &mod)
-{
-  // q = in * 0.8;
-  uint32_t q = (in >> 1) + (in >> 2);
-  q = q + (q >> 4);
-  q = q + (q >> 8);
-  q = q + (q >> 16);  // not needed for 16 bit version
-
-  // q = q / 8;  ==> q =  in *0.1;
-  q = q >> 3;
-  
-  // determine error
-  uint32_t  r = in - ((q << 3) + (q << 1));   // r = in - q*10; 
-  div = q + (r > 9);
-  if (r > 9) mod = r - 10;
-  else mod = r;
-}
-
-int main(int argc, char *argv[]) {
-    //char buf[25];
-    //jkj::dragonbox::to_chars(4.5, buf);
-    //printf("buf=%s\n", buf);
-    std::uint64_t i, r, q;
-	struct timeval before , after;
-
-	gettimeofday(&before , NULL);
-  
-	//Time taking task
-	for (i=0 ; i <= 10000000; i++)
-	{
-		q = i/100;
-        r = i - q*100;
-	}
-  
-	gettimeofday(&after , NULL);
-
-	printf("Total time elapsed i/100 : %.0lf us\n", time_diff(before , after) );
-
-
-    __uint128_t m = computeM_u64(100);
-
-    gettimeofday(&before , NULL);
-  
-	//Time taking task
-	for (i=0 ; i <= 10000000; i++)
-	{
-        q = fastdiv_u64(i, m);
-        //r = i - q*100;
-		r = fastmod_u64(i, m, 100);
-	}
-  
-	gettimeofday(&after , NULL);
-
-	printf("Total time elapsed fastdiv : %.0lf us\n", time_diff(before , after) ); 
-
-    std::uint32_t j, div, mod;
-
-    gettimeofday(&before , NULL);
-    
-    //Time taking task
-	for (std::uint32_t j=0 ; j <= 10000000; j++)
-	{
-        divmod10(j, div, mod);
-	}
-  
-	gettimeofday(&after , NULL);
-
-	printf("Total time elapsed fastdiv : %.0lf us\n", time_diff(before , after) ); 
-
-    
-
-
-    for(int i = 0; i<1000000; i++) {
-        jkj::dragonbox::to_chars(7.6773, buf);
-        jkj::dragonbox::to_chars(7.5284, buf);
-        jkj::dragonbox::to_chars(6.82, buf);
-    }
-
-
-}
-*/
