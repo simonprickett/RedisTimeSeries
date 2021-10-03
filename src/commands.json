@@ -1,0 +1,156 @@
+{
+	"TS.CREATE": {
+		"summary": "Create a new time-series",
+		"complexity": "O(1)",
+		"arguments": [{
+				"name": "key",
+				"type": "key"
+			},
+			{
+				"type": "block",
+				"name": "RETENTION",
+				"block": [{
+					"name": "retentionTime",
+					"type": "integer"
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "ENCODING",
+				"block": [{
+					"name": "ENCODING",
+					"type": "enum",
+					"enum": [
+						"UNCOMPRESSED",
+						"COMPRESSED"
+					]
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "CHUNK_SIZE",
+				"block": [{
+					"name": "size",
+					"type": "integer"
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "DUPLICATE_POLICY",
+				"block": [{
+					"name": "policy",
+					"type": "enum",
+					"enum": [
+						"BLOCK",
+						"FIRST",
+						"LAST",
+						"MIN",
+						"MAX",
+						"SUM"
+					]
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "LABELS",
+				"block": [{
+						"name": "label",
+						"type": "string"
+					},
+					{
+						"name": "value",
+						"type": "string",
+						"multiple": true
+					}
+				],
+				"optional": true
+			}
+		],
+		"since": "1.0.0",
+		"group": "timeseries"
+	},
+	"TS.ADD": {
+		"summary": "Append a new sample to the series. If the series has not been created yet with TS.CREATE it will be automatically created.",
+		"complexity": "O(M) when M is the amount of compaction rules or O(1) with no compaction",
+		"arguments": [{
+				"name": "key",
+				"type": "key"
+			},
+			{
+				"name": "timestamp",
+				"type": "integer"
+			},
+			{
+				"name": "value",
+				"type": "double"
+			},
+			{
+				"type": "block",
+				"name": "RETENTION",
+				"block": [{
+					"name": "retentionTime",
+					"type": "integer"
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "ENCODING",
+				"block": [{
+					"name": "ENCODING",
+					"type": "enum",
+					"enum": [
+						"UNCOMPRESSED",
+						"COMPRESSED"
+					]
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "CHUNK_SIZE",
+				"block": [{
+					"name": "size",
+					"type": "integer"
+				}],
+				"optional": true
+			},
+			{
+				"type": "block",
+				"name": "DUPLICATE_POLICY",
+				"block": [{
+					"name": "policy",
+					"type": "enum",
+					"enum": [
+						"BLOCK",
+						"FIRST",
+						"LAST",
+						"MIN",
+						"MAX",
+						"SUM"
+					]
+				}],
+				"optional": true
+			},
+            {
+				"type": "block",
+				"name": "LABELS",
+				"block": [{
+						"name": "label",
+						"type": "string"
+					},
+					{
+						"name": "value",
+						"type": "string",
+						"multiple": true
+					}
+				],
+				"optional": true
+			}
+		]
+	}
+}
